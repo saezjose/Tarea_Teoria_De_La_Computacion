@@ -4,6 +4,24 @@ import sys
 
 
 reglas_lexicas = [
+    
+    ('COMENTARIO_BLOQ',            r'/\*[\s\S]*?\*/'),
+    ('COMENTARIO_BLOQ_SIN_CERRAR', r'/\*[^\n]*'),
+    ('COMENTARIO_LINEA',           r'%[^\n]*'),
+
+   
+    ('CADENA',                     r'"[^"\n]*"'),
+    ('CADENA_SIN_CERRAR',          r'"[^"\n]*'),
+    ('ATOMO_COMILLAS',             r"'[^'\n]*'"),
+    ('ATOMO_COMILLAS_SIN_CERRAR',  r"'[^'\n]*"),
+
+    
+    ('NUM_MAL_MULTIPLES_PUNTOS', r'[0-9]+(\.[0-9]+){2,}'),          # ej: 3.14.15
+    ('NUM_MAL_LETRA_PEGADA',     r'[0-9]+[a-zA-Z_][a-zA-Z0-9_]*'),  # ej: 42x
+    ('NUM_REAL',                 r'[0-9]+\.[0-9]+'),
+    ('NUM_ENTERO',               r'[0-9]+'),
+
+    
     ('DELIMITADOR', r'\(|\)|\[|\]|\{|\}|\|'),
     ('PUNTO',       r'\.'),
     ('VARIABLE',    r'[A-Z_][a-zA-Z0-9_]*'),
@@ -12,7 +30,17 @@ reglas_lexicas = [
 ]
 
 
-TOKENS_IGNORADOS = {'ESPACIO'}
+TOKENS_IGNORADOS = {'ESPACIO', 'COMENTARIO_LINEA', 'COMENTARIO_BLOQ'}
+
+
+TOKENS_ERROR = {
+    'COMENTARIO_BLOQ_SIN_CERRAR': 'Comentario de bloque sin cierre',
+    'CADENA_SIN_CERRAR':          'Cadena sin cierre',
+    'ATOMO_COMILLAS_SIN_CERRAR':  'Átomo entrecomillado sin cierre',
+    'NUM_MAL_MULTIPLES_PUNTOS':   'Número mal formado (múltiples puntos decimales)',
+    'NUM_MAL_LETRA_PEGADA':       'Número mal formado (letra pegada a un dígito)',
+}
+
 
 patron_maestro = '|'.join(f'(?P<{nombre}>{patron})' for nombre, patron in reglas_lexicas)
 regex = re.compile(patron_maestro)
@@ -39,14 +67,22 @@ def analizador_lexico(codigo_fuente):
                 linea += lexema.count('\n')
                 inicio_linea = posicion + lexema.rfind('\n') + 1
 
-            if tipo_token not in TOKENS_IGNORADOS:
-              
+            if tipo_token in TOKENS_ERROR:
+                
+                total_errores += 1
+                mensaje = TOKENS_ERROR[tipo_token]
+                fragmento = lexema if len(lexema) <= 30 else lexema[:30] + '...'
+                print(f"ERROR LÉXICO ({mensaje}): fragmento '{fragmento}' "
+                      f"en línea {linea}, columna {columna}")
+
+            elif tipo_token not in TOKENS_IGNORADOS:
+                
                 print(f"<{tipo_token}, '{lexema}', {linea}, {columna}, ->")
 
             posicion = match.end()
 
         else:
-           
+            
             total_errores += 1
             columna = posicion - inicio_linea + 1
             caracter_erroneo = codigo_fuente[posicion]
