@@ -27,7 +27,7 @@ en el informe técnico entregado junto con esta tarea.
 | `valido.pl` | Corpus de **20 pruebas válidas**, cubriendo todas las categorías léxicas definidas. Debe ejecutarse sin errores. |
 | `errores.pl` | Corpus con **8 errores léxicos inyectados**, cubriendo los 4 tipos exigidos: carácter no admitido, átomo/cadena sin cierre, comentario de bloque sin cierre y número mal formado. |
 | `prioridad.pl` | Corpus de **16 casos** enfocados en prioridad y máxima coincidencia (operadores compuestos, palabras clave `is`/`mod` vs. átomos, variable anónima, etc.). |
-| `ejemplo.pl` | Archivo de prueba adicional usado durante el desarrollo. |
+
 
 ## Requisitos
 
