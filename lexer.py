@@ -1,32 +1,35 @@
-
 import re
 import sys
 
 
 reglas_lexicas = [
-    
+
     ('COMENTARIO_BLOQ',            r'/\*[\s\S]*?\*/'),
+
     ('COMENTARIO_BLOQ_SIN_CERRAR', r'/\*[^\n]*'),
     ('COMENTARIO_LINEA',           r'%[^\n]*'),
 
-   
     ('CADENA',                     r'"[^"\n]*"'),
     ('CADENA_SIN_CERRAR',          r'"[^"\n]*'),
     ('ATOMO_COMILLAS',             r"'[^'\n]*'"),
     ('ATOMO_COMILLAS_SIN_CERRAR',  r"'[^'\n]*"),
 
-    
-    ('NUM_MAL_MULTIPLES_PUNTOS', r'[0-9]+(\.[0-9]+){2,}'),          # ej: 3.14.15
-    ('NUM_MAL_LETRA_PEGADA',     r'[0-9]+[a-zA-Z_][a-zA-Z0-9_]*'),  # ej: 42x
+
+    ('NUM_MAL_MULTIPLES_PUNTOS', r'[0-9]+(\.[0-9]+){2,}'),          
+    ('NUM_MAL_LETRA_PEGADA',     r'[0-9]+[a-zA-Z_][a-zA-Z0-9_]*'),  
     ('NUM_REAL',                 r'[0-9]+\.[0-9]+'),
     ('NUM_ENTERO',               r'[0-9]+'),
 
-    
-    ('DELIMITADOR', r'\(|\)|\[|\]|\{|\}|\|'),
-    ('PUNTO',       r'\.'),
-    ('VARIABLE',    r'[A-Z_][a-zA-Z0-9_]*'),
-    ('ATOMO',       r'[a-z][a-zA-Z0-9_]*'),
-    ('ESPACIO',     r'\s+'),
+    ('OP_CLAUSULA',      r':-|\?-|-->'),
+    ('OP_UNIFICACION',   r'\\==|==|=\.\.|\\=|=<|>=|<|>|='),
+    ('OP_ARITMETICO',    r'\*\*|//|\+|-|\*|/'),
+    ('OP_ALFABETICO',    r'\b(is|mod)\b'),
+    ('OP_CONTROL',       r'\\\+|!|;|,'),
+    ('DELIMITADOR',      r'\(|\)|\[|\]|\{|\}|\|'),
+    ('PUNTO',            r'\.'),
+    ('VARIABLE',         r'[A-Z_][a-zA-Z0-9_]*'),
+    ('ATOMO',            r'[a-z][a-zA-Z0-9_]*'),
+    ('ESPACIO',          r'\s+'),
 ]
 
 
@@ -42,15 +45,48 @@ TOKENS_ERROR = {
 }
 
 
+TOKENS_CON_ATRIBUTO = {
+    'ATOMO', 'ATOMO_COMILLAS', 'VARIABLE', 'CADENA', 'NUM_ENTERO', 'NUM_REAL',
+}
+
+
 patron_maestro = '|'.join(f'(?P<{nombre}>{patron})' for nombre, patron in reglas_lexicas)
 regex = re.compile(patron_maestro)
 
 
+class TablaLexemas:
+
+
+    def __init__(self):
+        self._entradas = {}  
+        self._siguiente = 1
+
+    def registrar(self, lexema, categoria):
+ 
+        if lexema in self._entradas:
+            return self._entradas[lexema][0]
+        indice = self._siguiente
+        self._entradas[lexema] = (indice, categoria)
+        self._siguiente += 1
+        return indice
+
+    def filas(self):
+   
+        return sorted(
+            ((idx, lex, cat) for lex, (idx, cat) in self._entradas.items()),
+            key=lambda fila: fila[0],
+        )
+
+    def __len__(self):
+        return len(self._entradas)
+
+
 def analizador_lexico(codigo_fuente):
-    """Recorre el código fuente de izquierda a derecha emitiendo tokens."""
+  
     posicion = 0
     linea = 1
     inicio_linea = 0
+    tabla_lexemas = TablaLexemas()
     total_errores = 0
 
     print("--- INICIANDO ANÁLISIS LÉXICO ---")
@@ -63,12 +99,13 @@ def analizador_lexico(codigo_fuente):
             lexema = match.group(tipo_token)
             columna = posicion - inicio_linea + 1
 
+
             if '\n' in lexema:
                 linea += lexema.count('\n')
                 inicio_linea = posicion + lexema.rfind('\n') + 1
 
             if tipo_token in TOKENS_ERROR:
-                
+
                 total_errores += 1
                 mensaje = TOKENS_ERROR[tipo_token]
                 fragmento = lexema if len(lexema) <= 30 else lexema[:30] + '...'
@@ -76,13 +113,20 @@ def analizador_lexico(codigo_fuente):
                       f"en línea {linea}, columna {columna}")
 
             elif tipo_token not in TOKENS_IGNORADOS:
-                
-                print(f"<{tipo_token}, '{lexema}', {linea}, {columna}, ->")
+
+                if tipo_token in TOKENS_CON_ATRIBUTO:
+                    indice = tabla_lexemas.registrar(lexema, tipo_token)
+                    atributo = f"idx:{indice}"
+                else:
+
+                    atributo = "-"
+                print(f"<{tipo_token}, '{lexema}', {linea}, {columna}, {atributo}>")
+
 
             posicion = match.end()
 
         else:
-            
+         
             total_errores += 1
             columna = posicion - inicio_linea + 1
             caracter_erroneo = codigo_fuente[posicion]
@@ -91,8 +135,18 @@ def analizador_lexico(codigo_fuente):
             posicion += 1
 
     print(f"\n--- Total de errores léxicos detectados: {total_errores} ---")
-    return total_errores
+    return tabla_lexemas, total_errores
 
+
+def imprimir_tabla(tabla):
+
+    print("\n--- TABLA DE LEXEMAS ---")
+    print(f"{'Indice':>6} | {'Lexema':<34} | Categoria")
+    print("-" * 70)
+    for indice, lexema, categoria in tabla.filas():
+        print(f"{indice:>6} | {lexema:<34} | {categoria}")
+    print("-" * 70)
+    print(f"Total de entradas unicas: {len(tabla)}")
 
 def main():
     ruta_archivo = sys.argv[1] if len(sys.argv) > 1 else "ejemplo.pl"
@@ -104,7 +158,8 @@ def main():
         print(f"Error: no se encontró el archivo '{ruta_archivo}'.")
         return 1
 
-    analizador_lexico(codigo_fuente)
+    tabla, total_errores = analizador_lexico(codigo_fuente)
+    imprimir_tabla(tabla)
     return 0
 
 
