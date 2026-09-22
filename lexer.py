@@ -149,7 +149,7 @@ def imprimir_tabla(tabla):
     print(f"Total de entradas unicas: {len(tabla)}")
 
 def main():
-    ruta_archivo = sys.argv[1] if len(sys.argv) > 1 else "ejemplo.pl"
+    ruta_archivo = sys.argv[1] if len(sys.argv) > 1 else "valido.pl"
 
     try:
         with open(ruta_archivo, 'r', encoding='utf-8') as archivo:
